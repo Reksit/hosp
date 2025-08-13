@@ -4,117 +4,156 @@ interface User {
   id: string;
   name: string;
   email: string;
-  role: 'ambulance_driver' | 'hospital_admin' | 'doctor' | 'nurse';
+  role: 'AMBULANCE_DRIVER' | 'HOSPITAL_ADMIN' | 'DOCTOR' | 'NURSE';
   hospitalId?: string;
-  ambulanceId?: string;
+  hospitalName?: string;
+  emailVerified: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  token: string | null;
   login: (email: string, password: string, role: string) => Promise<boolean>;
   logout: () => void;
-  verifyEmail: (code: string) => Promise<boolean>;
+  verifyEmail: (token: string) => Promise<boolean>;
+  resendVerification: (email: string) => Promise<boolean>;
   needsEmailVerification: boolean;
+  setNeedsEmailVerification: (needs: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const API_BASE_URL = 'http://localhost:8080/api';
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
 
-  // Mock users for demonstration
-  const mockUsers: Record<string, User & { password: string }> = {
-    'driver@hospital.com': {
-      id: '1',
-      name: 'John Driver',
-      email: 'driver@hospital.com',
-      role: 'ambulance_driver',
-      password: 'password123',
-      hospitalId: 'h1',
-      ambulanceId: 'amb1'
-    },
-    'admin@hospital.com': {
-      id: '2',
-      name: 'Sarah Admin',
-      email: 'admin@hospital.com',
-      role: 'hospital_admin',
-      password: 'password123',
-      hospitalId: 'h1'
-    },
-    'doctor@hospital.com': {
-      id: '3',
-      name: 'Dr. Michael Smith',
-      email: 'doctor@hospital.com',
-      role: 'doctor',
-      password: 'password123',
-      hospitalId: 'h1'
-    },
-    'nurse@hospital.com': {
-      id: '4',
-      name: 'Lisa Nurse',
-      email: 'nurse@hospital.com',
-      role: 'nurse',
-      password: 'password123',
-      hospitalId: 'h1'
-    }
-  };
-
   useEffect(() => {
+    const savedToken = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      const parsedUser = JSON.parse(savedUser);
-      setUser(parsedUser);
+    
+    if (savedToken && savedUser) {
+      setToken(savedToken);
+      setUser(JSON.parse(savedUser));
       setIsAuthenticated(true);
     }
   }, []);
 
   const login = async (email: string, password: string, role: string): Promise<boolean> => {
-    const mockUser = mockUsers[email];
-    if (mockUser && mockUser.password === password && mockUser.role === role) {
-      // Simulate email verification requirement
-      setNeedsEmailVerification(true);
-      localStorage.setItem('pendingUser', JSON.stringify({ ...mockUser, password: undefined }));
-      return true;
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/signin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          role: role.toUpperCase()
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const userData: User = {
+          id: data.id.toString(),
+          name: data.name,
+          email: data.email,
+          role: data.role,
+          hospitalId: data.hospitalId?.toString(),
+          hospitalName: data.hospitalName,
+          emailVerified: data.emailVerified
+        };
+
+        if (!data.emailVerified) {
+          setNeedsEmailVerification(true);
+          localStorage.setItem('pendingEmail', email);
+          return true;
+        }
+
+        setToken(data.token);
+        setUser(userData);
+        setIsAuthenticated(true);
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(userData));
+        return true;
+      } else {
+        throw new Error(data.message || 'Login failed');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      return false;
     }
-    return false;
   };
 
-  const verifyEmail = async (code: string): Promise<boolean> => {
-    // Mock email verification - accept any 6-digit code
-    if (code.length === 6) {
-      const pendingUser = localStorage.getItem('pendingUser');
-      if (pendingUser) {
-        const user = JSON.parse(pendingUser);
-        setUser(user);
-        setIsAuthenticated(true);
+  const verifyEmail = async (verificationToken: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/verify-email?token=${verificationToken}`, {
+        method: 'GET',
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
         setNeedsEmailVerification(false);
-        localStorage.setItem('user', JSON.stringify(user));
-        localStorage.removeItem('pendingUser');
+        localStorage.removeItem('pendingEmail');
+        
+        // After verification, try to login again
+        const pendingEmail = localStorage.getItem('pendingEmail');
+        if (pendingEmail) {
+          // User needs to login again after verification
+          return true;
+        }
         return true;
+      } else {
+        throw new Error(data.message || 'Verification failed');
       }
+    } catch (error) {
+      console.error('Verification error:', error);
+      return false;
     }
-    return false;
+  };
+
+  const resendVerification = async (email: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/resend-verification?email=${email}`, {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+      return response.ok;
+    } catch (error) {
+      console.error('Resend verification error:', error);
+      return false;
+    }
   };
 
   const logout = () => {
     setUser(null);
     setIsAuthenticated(false);
+    setToken(null);
     setNeedsEmailVerification(false);
     localStorage.removeItem('user');
-    localStorage.removeItem('pendingUser');
+    localStorage.removeItem('token');
+    localStorage.removeItem('pendingEmail');
   };
 
   return (
     <AuthContext.Provider value={{
       user,
       isAuthenticated,
+      token,
       login,
       logout,
       verifyEmail,
-      needsEmailVerification
+      resendVerification,
+      needsEmailVerification,
+      setNeedsEmailVerification
     }}>
       {children}
     </AuthContext.Provider>

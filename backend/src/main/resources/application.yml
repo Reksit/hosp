@@ -2,6 +2,8 @@ server:
   port: 8080
 
 spring:
+  profiles:
+    active: dev
   datasource:
     url: jdbc:mysql://localhost:3306/healthcare_management?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
     username: ${DB_USERNAME:root}
@@ -30,9 +32,9 @@ spring:
             enable: true
 
 jwt:
-  secret: ${JWT_SECRET:mySecretKey}
+  secret: ${JWT_SECRET:myVerySecretKeyForHealthcareManagementSystemThatIsLongEnoughForHS256Algorithm}
   expiration: 86400000 # 24 hours
 
 app:
-  frontend-url: http://localhost:3000
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
   verification-token-expiration: 900000 # 15 minutes

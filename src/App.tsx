@@ -14,7 +14,7 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
     return <Navigate to="/login" />;
   }
   
-  if (!allowedRoles.includes(user?.role || '')) {
+  if (!allowedRoles.includes(user?.role?.toLowerCase() || '')) {
     return <Navigate to="/" />;
   }
   
@@ -28,9 +28,9 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={
         isAuthenticated ? (
-          user?.role === 'ambulance_driver' ? <Navigate to="/ambulance-dashboard" /> :
-          user?.role === 'hospital_admin' ? <Navigate to="/admin-dashboard" /> :
-          user?.role === 'doctor' || user?.role === 'nurse' ? <Navigate to="/doctor-dashboard" /> :
+          user?.role === 'AMBULANCE_DRIVER' ? <Navigate to="/ambulance-dashboard" /> :
+          user?.role === 'HOSPITAL_ADMIN' ? <Navigate to="/admin-dashboard" /> :
+          user?.role === 'DOCTOR' || user?.role === 'NURSE' ? <Navigate to="/doctor-dashboard" /> :
           <LandingPage />
         ) : <LandingPage />
       } />
