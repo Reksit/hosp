@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { testBackendConnection } from '../services/testApi';
 
 interface User {
   id: string;
@@ -20,6 +21,7 @@ interface AuthContextType {
   resendVerification: (email: string) => Promise<boolean>;
   needsEmailVerification: boolean;
   setNeedsEmailVerification: (needs: boolean) => void;
+  backendConnected: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,6 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
+  const [backendConnected, setBackendConnected] = useState(false);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
@@ -41,6 +44,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(JSON.parse(savedUser));
       setIsAuthenticated(true);
     }
+
+    // Test backend connection
+    testBackendConnection().then(setBackendConnected);
   }, []);
 
   const login = async (email: string, password: string, role: string): Promise<boolean> => {
@@ -53,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({
           email,
           password,
-          role: role.toUpperCase().replace('_', '_')
+          role: role.toUpperCase()
         }),
       });
 
@@ -147,6 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       resendVerification,
       needsEmailVerification,
       setNeedsEmailVerification
+      backendConnected
     }}>
       {children}
     </AuthContext.Provider>

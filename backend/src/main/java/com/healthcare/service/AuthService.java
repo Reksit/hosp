@@ -85,6 +85,11 @@ public class AuthService {
             throw new RuntimeException("Error: Please verify your email first!");
         }
 
+        // Check if the role matches
+        String requestedRole = loginRequest.getRole().toUpperCase().replace("_", "_");
+        if (!user.getRole().name().equals(requestedRole)) {
+            throw new RuntimeException("Error: Invalid role for this user!");
+        }
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword()));
 

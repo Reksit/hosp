@@ -22,7 +22,7 @@ export default function Login() {
   
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login, verifyEmail, resendVerification, needsEmailVerification, setNeedsEmailVerification } = useAuth();
+  const { login, verifyEmail, resendVerification, needsEmailVerification, setNeedsEmailVerification, backendConnected } = useAuth();
 
   React.useEffect(() => {
     const roleParam = searchParams.get('role');
@@ -32,6 +32,35 @@ export default function Login() {
     }
   }, [searchParams]);
 
+  // Show backend connection status
+  if (!backendConnected) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center p-4">
+        <div className="max-w-md w-full">
+          <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Heart className="h-8 w-8 text-red-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Backend Connection Failed</h2>
+            <p className="text-gray-600 mb-6">
+              Unable to connect to the backend server. Please ensure:
+            </p>
+            <ul className="text-left text-sm text-gray-600 mb-6 space-y-2">
+              <li>• MySQL server is running</li>
+              <li>• Backend server is started (port 8080)</li>
+              <li>• Database 'healthcare_management' exists</li>
+            </ul>
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+            >
+              Retry Connection
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -68,7 +97,7 @@ export default function Login() {
           name: signupData.name,
           email: signupData.email,
           password: signupData.password,
-          role: signupData.role.toUpperCase().replace('_', '_'),
+          role: signupData.role.toUpperCase(),
           hospitalId: signupData.hospitalId ? parseInt(signupData.hospitalId) : null
         }),
       });
