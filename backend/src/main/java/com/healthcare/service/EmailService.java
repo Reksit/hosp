@@ -16,20 +16,20 @@ public class EmailService {
     private String frontendUrl;
 
     @Async
-    public void sendVerificationEmail(String to, String name, String token) {
+    public void sendVerificationEmail(String to, String name, String otp) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(to);
         message.setSubject("Healthcare Management - Email Verification");
         message.setText(String.format(
             "Dear %s,\n\n" +
             "Thank you for registering with Healthcare Management System.\n\n" +
-            "Please click the following link to verify your email address:\n" +
-            "%s/verify-email?token=%s\n\n" +
-            "This link will expire in 15 minutes.\n\n" +
+            "Your verification OTP is: %s\n\n" +
+            "Please enter this OTP in the verification form to complete your registration.\n\n" +
+            "This OTP will expire in 15 minutes.\n\n" +
             "If you didn't create an account, please ignore this email.\n\n" +
             "Best regards,\n" +
             "Healthcare Management Team",
-            name, frontendUrl, token
+            name, otp
         ));
 
         mailSender.send(message);

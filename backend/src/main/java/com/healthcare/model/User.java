@@ -44,6 +44,9 @@ public class User {
     @Column(name = "verification_token")
     private String verificationToken;
 
+    @Column(name = "verification_otp")
+    private String verificationOtp;
+
     @Column(name = "verification_token_expiry")
     private LocalDateTime verificationTokenExpiry;
 
@@ -102,6 +105,9 @@ public class User {
 
     public String getVerificationToken() { return verificationToken; }
     public void setVerificationToken(String verificationToken) { this.verificationToken = verificationToken; }
+
+    public String getVerificationOtp() { return verificationOtp; }
+    public void setVerificationOtp(String verificationOtp) { this.verificationOtp = verificationOtp; }
 
     public LocalDateTime getVerificationTokenExpiry() { return verificationTokenExpiry; }
     public void setVerificationTokenExpiry(LocalDateTime verificationTokenExpiry) { this.verificationTokenExpiry = verificationTokenExpiry; }

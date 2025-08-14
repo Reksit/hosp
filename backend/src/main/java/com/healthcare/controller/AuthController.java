@@ -37,9 +37,9 @@ public class AuthController {
     }
 
     @GetMapping("/verify-email")
-    public ResponseEntity<?> verifyEmail(@RequestParam String token) {
+    public ResponseEntity<?> verifyEmail(@RequestParam String otp) {
         try {
-            MessageResponse response = authService.verifyEmail(token);
+            MessageResponse response = authService.verifyEmail(otp);
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest()

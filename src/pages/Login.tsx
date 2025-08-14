@@ -8,7 +8,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [verificationToken, setVerificationToken] = useState('');
+  const [verificationOtp, setVerificationOtp] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
@@ -39,9 +39,11 @@ export default function Login() {
 
     try {
       const success = await login(email, password, role);
-      if (success && !needsEmailVerification) {
+      if (success) {
         navigate('/');
-      } else if (!success) {
+      } else if (needsEmailVerification) {
+        // Email verification needed, stay on verification screen
+      } else {
         setError('Invalid credentials or email not verified');
       }
     } catch (err) {
@@ -66,7 +68,7 @@ export default function Login() {
           name: signupData.name,
           email: signupData.email,
           password: signupData.password,
-          role: signupData.role.toUpperCase(),
+          role: signupData.role.toUpperCase().replace('_', '_'),
           hospitalId: signupData.hospitalId ? parseInt(signupData.hospitalId) : null
         }),
       });
@@ -93,14 +95,14 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const success = await verifyEmail(verificationToken);
+      const success = await verifyEmail(verificationOtp);
       if (success) {
         setNeedsEmailVerification(false);
         setError('');
         // Show success message and allow user to login
         alert('Email verified successfully! Please login again.');
       } else {
-        setError('Invalid verification token');
+        setError('Invalid verification OTP');
       }
     } catch (err) {
       setError('Verification failed. Please try again.');
@@ -138,23 +140,25 @@ export default function Login() {
               </div>
               <h2 className="text-2xl font-bold text-gray-900">Email Verification</h2>
               <p className="text-gray-600 mt-2">
-                We've sent a verification link to your email address
+                We've sent a 6-digit OTP to your email address
               </p>
             </div>
 
             <form onSubmit={handleVerifyEmail} className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Verification Token
+                  Verification OTP
                 </label>
                 <input
                   type="text"
-                  value={verificationToken}
-                  onChange={(e) => setVerificationToken(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter verification token from email"
+                  value={verificationOtp}
+                  onChange={(e) => setVerificationOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center text-2xl tracking-widest"
+                  placeholder="000000"
+                  maxLength={6}
                   required
                 />
+                <p className="text-xs text-gray-500 mt-1 text-center">Enter the 6-digit code sent to your email</p>
               </div>
 
               {error && (
@@ -165,7 +169,7 @@ export default function Login() {
 
               <button
                 type="submit"
-                disabled={isLoading || !verificationToken}
+                disabled={isLoading || verificationOtp.length !== 6}
                 className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
               >
                 {isLoading ? 'Verifying...' : 'Verify Email'}

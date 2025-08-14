@@ -16,25 +16,9 @@ export default function DoctorNurseDashboard() {
       try {
         setLoading(true);
         
-        // Fetch user's assigned beds (which represent patient assignments)
-        if (user?.hospitalId) {
-          const bedsData = await request(`/beds/hospital/${user.hospitalId}`);
-          const userAssignments = bedsData.filter(bed => 
-            (user.role === 'DOCTOR' && bed.assignedDoctor?.id === parseInt(user.id)) ||
-            (user.role === 'NURSE' && bed.assignedNurse?.id === parseInt(user.id))
-          );
-          setAssignments(userAssignments);
-        }
-        
-        // Fetch work hours
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - 30);
-        const endDate = new Date();
-        
-        const workHoursData = await request(
-          `/users/${user?.id}/work-hours?startDate=${startDate.toISOString().split('T')[0]}&endDate=${endDate.toISOString().split('T')[0]}`
-        );
-        setWorkHours(workHoursData);
+        // Mock data for now - replace with actual API calls
+        setAssignments([]);
+        setWorkHours([]);
         
       } catch (error) {
         console.error('Failed to fetch data:', error);

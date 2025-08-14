@@ -16,7 +16,7 @@ interface AuthContextType {
   token: string | null;
   login: (email: string, password: string, role: string) => Promise<boolean>;
   logout: () => void;
-  verifyEmail: (token: string) => Promise<boolean>;
+  verifyEmail: (otp: string) => Promise<boolean>;
   resendVerification: (email: string) => Promise<boolean>;
   needsEmailVerification: boolean;
   setNeedsEmailVerification: (needs: boolean) => void;
@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({
           email,
           password,
-          role: role.toUpperCase()
+          role: role.toUpperCase().replace('_', '_')
         }),
       });
 
@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!data.emailVerified) {
           setNeedsEmailVerification(true);
           localStorage.setItem('pendingEmail', email);
-          return true;
+          return false;
         }
 
         setToken(data.token);
@@ -91,9 +91,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const verifyEmail = async (verificationToken: string): Promise<boolean> => {
+  const verifyEmail = async (otp: string): Promise<boolean> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/verify-email?token=${verificationToken}`, {
+      const response = await fetch(`${API_BASE_URL}/auth/verify-email?otp=${otp}`, {
         method: 'GET',
       });
 
@@ -102,13 +102,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (response.ok) {
         setNeedsEmailVerification(false);
         localStorage.removeItem('pendingEmail');
-        
-        // After verification, try to login again
-        const pendingEmail = localStorage.getItem('pendingEmail');
-        if (pendingEmail) {
-          // User needs to login again after verification
-          return true;
-        }
         return true;
       } else {
         throw new Error(data.message || 'Verification failed');

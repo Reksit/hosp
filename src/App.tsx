@@ -14,7 +14,7 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
     return <Navigate to="/login" />;
   }
   
-  if (!allowedRoles.includes(user?.role?.toLowerCase() || '')) {
+  if (user?.role && !allowedRoles.includes(user.role.toLowerCase().replace('_', '_'))) {
     return <Navigate to="/" />;
   }
   

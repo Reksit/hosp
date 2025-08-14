@@ -17,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Random;
 import java.util.UUID;
 
 @Service
@@ -60,14 +61,14 @@ public class AuthService {
         }
 
         // Generate verification token
-        String verificationToken = UUID.randomUUID().toString();
-        user.setVerificationToken(verificationToken);
+        String verificationOtp = generateOtp();
+        user.setVerificationOtp(verificationOtp);
         user.setVerificationTokenExpiry(LocalDateTime.now().plusMinutes(15));
 
         userRepository.save(user);
 
         // Send verification email
-        emailService.sendVerificationEmail(user.getEmail(), user.getName(), verificationToken);
+        emailService.sendVerificationEmail(user.getEmail(), user.getName(), verificationOtp);
 
         return new MessageResponse("User registered successfully! Please check your email for verification.");
     }
@@ -103,16 +104,16 @@ public class AuthService {
                              user.getIsEmailVerified());
     }
 
-    public MessageResponse verifyEmail(String token) {
-        User user = userRepository.findByVerificationToken(token)
-                .orElseThrow(() -> new RuntimeException("Error: Invalid verification token!"));
+    public MessageResponse verifyEmail(String otp) {
+        User user = userRepository.findByVerificationOtp(otp)
+                .orElseThrow(() -> new RuntimeException("Error: Invalid verification OTP!"));
 
         if (user.getVerificationTokenExpiry().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Error: Verification token has expired!");
+            throw new RuntimeException("Error: Verification OTP has expired!");
         }
 
         user.setIsEmailVerified(true);
-        user.setVerificationToken(null);
+        user.setVerificationOtp(null);
         user.setVerificationTokenExpiry(null);
         userRepository.save(user);
 
@@ -128,14 +129,20 @@ public class AuthService {
         }
 
         // Generate new verification token
-        String verificationToken = UUID.randomUUID().toString();
-        user.setVerificationToken(verificationToken);
+        String verificationOtp = generateOtp();
+        user.setVerificationOtp(verificationOtp);
         user.setVerificationTokenExpiry(LocalDateTime.now().plusMinutes(15));
         userRepository.save(user);
 
         // Send verification email
-        emailService.sendVerificationEmail(user.getEmail(), user.getName(), verificationToken);
+        emailService.sendVerificationEmail(user.getEmail(), user.getName(), verificationOtp);
 
         return new MessageResponse("Verification email sent successfully!");
+    }
+
+    private String generateOtp() {
+        Random random = new Random();
+        int otp = 100000 + random.nextInt(900000);
+        return String.valueOf(otp);
     }
 }

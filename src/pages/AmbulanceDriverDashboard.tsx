@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Navigation, Phone, Clock, AlertTriangle, CheckCircle } from 'lucide-react';
 import GoogleMap from '../components/GoogleMap';
-import { useApi } from '../hooks/useApi';
+import { useAuth } from '../context/AuthContext';
 
 interface EmergencyCall {
   id: string;
@@ -26,7 +26,7 @@ const AmbulanceDriverDashboard: React.FC = () => {
   const [emergencyCalls, setEmergencyCalls] = useState<EmergencyCall[]>([]);
   const [ambulanceStatus, setAmbulanceStatus] = useState<AmbulanceStatus | null>(null);
   const [currentCall, setCurrentCall] = useState<EmergencyCall | null>(null);
-  const { get, post, put } = useApi();
+  const { user, logout } = useAuth();
 
   useEffect(() => {
     fetchEmergencyCalls();
@@ -35,8 +35,8 @@ const AmbulanceDriverDashboard: React.FC = () => {
 
   const fetchEmergencyCalls = async () => {
     try {
-      const response = await get('/api/ambulance/calls');
-      setEmergencyCalls(response.data || []);
+      // Mock data for now - replace with actual API call
+      setEmergencyCalls([]);
     } catch (error) {
       console.error('Error fetching emergency calls:', error);
     }
@@ -44,8 +44,8 @@ const AmbulanceDriverDashboard: React.FC = () => {
 
   const fetchAmbulanceStatus = async () => {
     try {
-      const response = await get('/api/ambulance/status');
-      setAmbulanceStatus(response.data);
+      // Mock data for now - replace with actual API call
+      setAmbulanceStatus(null);
     } catch (error) {
       console.error('Error fetching ambulance status:', error);
     }
@@ -53,7 +53,6 @@ const AmbulanceDriverDashboard: React.FC = () => {
 
   const acceptCall = async (callId: string) => {
     try {
-      await post(`/api/ambulance/calls/${callId}/accept`);
       const call = emergencyCalls.find(c => c.id === callId);
       if (call) {
         setCurrentCall({ ...call, status: 'ACCEPTED' });
@@ -68,7 +67,6 @@ const AmbulanceDriverDashboard: React.FC = () => {
     if (!currentCall) return;
     
     try {
-      await put(`/api/ambulance/calls/${currentCall.id}/status`, { status });
       setCurrentCall(prev => prev ? { ...prev, status } : null);
       
       if (status === 'COMPLETED') {
@@ -112,6 +110,17 @@ const AmbulanceDriverDashboard: React.FC = () => {
                 <Navigation className="h-8 w-8 text-red-600" />
                 <h1 className="text-2xl font-bold text-gray-900">Ambulance Driver Dashboard</h1>
               </div>
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-gray-600">Welcome, {user?.name}</span>
+                <button
+                  onClick={logout}
+                  className="text-sm text-gray-600 hover:text-gray-800"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
               {ambulanceStatus && (
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-gray-600">Vehicle:</span>
