@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useHospitalStats, useAmbulances, useBeds, useStaff } from '../hooks/useApi';
+import GoogleMap from '../components/GoogleMap';
 import { 
   Users, 
   Bed, 
@@ -16,38 +18,14 @@ import {
 export default function HospitalAdminDashboard() {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
+  const [showAddModal, setShowAddModal] = useState<string | null>(null);
+  const [newItem, setNewItem] = useState<any>({});
 
-  // Mock data
-  const hospitalStats = {
-    totalBeds: 120,
-    availableBeds: 28,
-    occupiedBeds: 92,
-    doctors: 45,
-    nurses: 120,
-    ambulances: 8,
-    activeAmbulances: 5
-  };
-
-  const ambulances = [
-    { id: 'AMB001', driver: 'John Driver', status: 'enroute_pickup', location: 'Main St & 5th Ave', eta: '12 min', priority: 'high' },
-    { id: 'AMB002', driver: 'Mike Johnson', status: 'patient_onboard', location: 'Downtown Medical', eta: '8 min', priority: 'critical' },
-    { id: 'AMB003', driver: 'Sarah Wilson', status: 'available', location: 'Station 1', eta: '-', priority: 'low' },
-    { id: 'AMB004', driver: 'Tom Brown', status: 'at_pickup', location: 'Park Ave & 10th', eta: '15 min', priority: 'medium' },
-  ];
-
-  const staff = [
-    { id: 1, name: 'Dr. Michael Smith', role: 'doctor', department: 'Emergency', status: 'available', workHours: '8.5/12' },
-    { id: 2, name: 'Dr. Sarah Johnson', role: 'doctor', department: 'Cardiology', status: 'busy', workHours: '6.0/12' },
-    { id: 3, name: 'Lisa Nurse', role: 'nurse', department: 'Emergency', status: 'available', workHours: '7.2/12' },
-    { id: 4, name: 'John Nurse', role: 'nurse', department: 'ICU', status: 'break', workHours: '8.0/12' },
-  ];
-
-  const beds = [
-    { id: 'ICU-001', type: 'ICU', status: 'occupied', patient: 'John Doe', assignedDoctor: 'Dr. Smith' },
-    { id: 'ICU-002', type: 'ICU', status: 'available', patient: null, assignedDoctor: null },
-    { id: 'ER-001', type: 'Emergency', status: 'occupied', patient: 'Jane Smith', assignedDoctor: 'Dr. Johnson' },
-    { id: 'GEN-001', type: 'General', status: 'cleaning', patient: null, assignedDoctor: null },
-  ];
+  // Real data from API
+  const { stats: hospitalStats, loading: statsLoading } = useHospitalStats(user?.hospitalId);
+  const { ambulances, loading: ambulancesLoading } = useAmbulances(user?.hospitalId);
+  const { beds, loading: bedsLoading, assignBed } = useBeds(user?.hospitalId);
+  const { staff, loading: staffLoading } = useStaff(user?.hospitalId);
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -67,6 +45,36 @@ export default function HospitalAdminDashboard() {
     };
     return colors[status] || 'text-gray-600 bg-gray-100';
   };
+
+  const handleAddItem = async (type: string) => {
+    try {
+      // Implementation for adding new items
+      console.log('Adding new', type, newItem);
+      setShowAddModal(null);
+      setNewItem({});
+    } catch (error) {
+      console.error('Failed to add item:', error);
+    }
+  };
+
+  const handleAssignBed = async (bedId: string, patientName: string, patientContact: string) => {
+    try {
+      await assignBed(bedId, patientName, patientContact);
+    } catch (error) {
+      console.error('Failed to assign bed:', error);
+    }
+  };
+
+  if (statsLoading || ambulancesLoading || bedsLoading || staffLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -96,7 +104,7 @@ export default function HospitalAdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Beds</p>
-                <p className="text-2xl font-bold text-gray-900">{hospitalStats.totalBeds}</p>
+                <p className="text-2xl font-bold text-gray-900">{hospitalStats?.totalBeds || 0}</p>
               </div>
               <Bed className="h-8 w-8 text-blue-600" />
             </div>
@@ -106,7 +114,7 @@ export default function HospitalAdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Available</p>
-                <p className="text-2xl font-bold text-green-600">{hospitalStats.availableBeds}</p>
+                <p className="text-2xl font-bold text-green-600">{hospitalStats?.availableBeds || 0}</p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-600" />
             </div>
@@ -116,7 +124,7 @@ export default function HospitalAdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Doctors</p>
-                <p className="text-2xl font-bold text-gray-900">{hospitalStats.doctors}</p>
+                <p className="text-2xl font-bold text-gray-900">{hospitalStats?.doctors || 0}</p>
               </div>
               <Users className="h-8 w-8 text-blue-600" />
             </div>
@@ -126,7 +134,7 @@ export default function HospitalAdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Nurses</p>
-                <p className="text-2xl font-bold text-gray-900">{hospitalStats.nurses}</p>
+                <p className="text-2xl font-bold text-gray-900">{hospitalStats?.nurses || 0}</p>
               </div>
               <Users className="h-8 w-8 text-purple-600" />
             </div>
@@ -136,7 +144,7 @@ export default function HospitalAdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Ambulances</p>
-                <p className="text-2xl font-bold text-gray-900">{hospitalStats.ambulances}</p>
+                <p className="text-2xl font-bold text-gray-900">{hospitalStats?.ambulances || 0}</p>
               </div>
               <MapPin className="h-8 w-8 text-orange-600" />
             </div>
@@ -146,7 +154,7 @@ export default function HospitalAdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Active</p>
-                <p className="text-2xl font-bold text-orange-600">{hospitalStats.activeAmbulances}</p>
+                <p className="text-2xl font-bold text-orange-600">{ambulances?.filter(a => a.status !== 'available').length || 0}</p>
               </div>
               <Activity className="h-8 w-8 text-orange-600" />
             </div>
@@ -156,7 +164,7 @@ export default function HospitalAdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Alerts</p>
-                <p className="text-2xl font-bold text-red-600">3</p>
+                <p className="text-2xl font-bold text-red-600">{ambulances?.filter(a => a.emergencyLevel === 'CRITICAL').length || 0}</p>
               </div>
               <AlertTriangle className="h-8 w-8 text-red-600" />
             </div>
@@ -196,46 +204,34 @@ export default function HospitalAdminDashboard() {
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Activity</h2>
               <div className="space-y-4">
-                {ambulances.slice(0, 3).map((ambulance) => (
+                {ambulances?.slice(0, 3).map((ambulance) => (
                   <div key={ambulance.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div>
-                      <p className="font-medium text-gray-900">{ambulance.id} - {ambulance.driver}</p>
-                      <p className="text-sm text-gray-600">{ambulance.location}</p>
+                      <p className="font-medium text-gray-900">{ambulance.vehicleNumber} - {ambulance.driver?.name || 'No driver assigned'}</p>
+                      <p className="text-sm text-gray-600">{ambulance.pickupAddress || 'No current pickup'}</p>
                     </div>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(ambulance.status)}`}>
                       {ambulance.status.replace('_', ' ')}
                     </span>
                   </div>
-                ))}
+                )) || <p className="text-gray-500">No recent activity</p>}
               </div>
             </div>
 
-            {/* Bed Occupancy Chart */}
+            {/* Live Map */}
             <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Bed Occupancy</h2>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">ICU</span>
-                  <div className="flex-1 mx-4 bg-gray-200 rounded-full h-2">
-                    <div className="bg-red-500 h-2 rounded-full" style={{ width: '85%' }}></div>
-                  </div>
-                  <span className="text-sm font-medium">17/20</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Emergency</span>
-                  <div className="flex-1 mx-4 bg-gray-200 rounded-full h-2">
-                    <div className="bg-orange-500 h-2 rounded-full" style={{ width: '70%' }}></div>
-                  </div>
-                  <span className="text-sm font-medium">14/20</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">General</span>
-                  <div className="flex-1 mx-4 bg-gray-200 rounded-full h-2">
-                    <div className="bg-yellow-500 h-2 rounded-full" style={{ width: '60%' }}></div>
-                  </div>
-                  <span className="text-sm font-medium">48/80</span>
-                </div>
-              </div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Live Ambulance Tracking</h2>
+              <GoogleMap
+                center={{ lat: 40.7128, lng: -74.0060 }}
+                zoom={12}
+                markers={ambulances?.filter(a => a.currentLatitude && a.currentLongitude).map(ambulance => ({
+                  id: ambulance.id.toString(),
+                  position: { lat: ambulance.currentLatitude, lng: ambulance.currentLongitude },
+                  title: ambulance.vehicleNumber,
+                  info: `Status: ${ambulance.status} | Driver: ${ambulance.driver?.name || 'Unassigned'}`
+                })) || []}
+                height="300px"
+              />
             </div>
           </div>
         )}
@@ -250,7 +246,10 @@ export default function HospitalAdminDashboard() {
                     <Filter className="h-4 w-4" />
                     <span>Filter</span>
                   </button>
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+                  <button 
+                    onClick={() => setShowAddModal('ambulance')}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                  >
                     <Plus className="h-4 w-4" />
                     <span>Add Ambulance</span>
                   </button>
@@ -265,29 +264,33 @@ export default function HospitalAdminDashboard() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Driver</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ETA</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {ambulances.map((ambulance) => (
+                  {ambulances?.map((ambulance) => (
                     <tr key={ambulance.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{ambulance.id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">{ambulance.driver}</td>
+                      <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{ambulance.vehicleNumber}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">{ambulance.driver?.name || 'Unassigned'}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(ambulance.status)}`}>
                           {ambulance.status.replace('_', ' ')}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{ambulance.location}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{ambulance.eta}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{ambulance.pickupAddress || 'No pickup'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{ambulance.patientName || 'No patient'}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(ambulance.priority)}`}>
-                          {ambulance.priority}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(ambulance.emergencyLevel?.toLowerCase() || 'low')}`}>
+                          {ambulance.emergencyLevel || 'LOW'}
                         </span>
                       </td>
                     </tr>
-                  ))}
+                  )) || (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-4 text-center text-gray-500">No ambulances found</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -299,7 +302,10 @@ export default function HospitalAdminDashboard() {
             <div className="p-6 border-b">
               <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold text-gray-900">Bed Management</h2>
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+                <button 
+                  onClick={() => setShowAddModal('bed')}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                >
                   <Plus className="h-4 w-4" />
                   <span>Add Bed</span>
                 </button>
@@ -318,22 +324,39 @@ export default function HospitalAdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {beds.map((bed) => (
+                  {beds?.map((bed) => (
                     <tr key={bed.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{bed.id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">{bed.type}</td>
+                      <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{bed.bedNumber}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">{bed.bedType}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(bed.status)}`}>
                           {bed.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{bed.patient || '-'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{bed.assignedDoctor || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{bed.patientName || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{bed.assignedDoctor?.name || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <button className="text-blue-600 hover:text-blue-900">Edit</button>
+                        {bed.status === 'AVAILABLE' && (
+                          <button 
+                            onClick={() => {
+                              const patientName = prompt('Enter patient name:');
+                              const patientContact = prompt('Enter patient contact:');
+                              if (patientName && patientContact) {
+                                handleAssignBed(bed.id.toString(), patientName, patientContact);
+                              }
+                            }}
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            Assign
+                          </button>
+                        )}
                       </td>
                     </tr>
-                  ))}
+                  )) || (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-4 text-center text-gray-500">No beds found</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -345,7 +368,10 @@ export default function HospitalAdminDashboard() {
             <div className="p-6 border-b">
               <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold text-gray-900">Staff Management</h2>
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+                <button 
+                  onClick={() => setShowAddModal('staff')}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                >
                   <Plus className="h-4 w-4" />
                   <span>Add Staff</span>
                 </button>
@@ -357,36 +383,99 @@ export default function HospitalAdminDashboard() {
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Work Hours</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hospital</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Verified</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {staff.map((member) => (
+                  {staff?.map((member) => (
                     <tr key={member.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{member.name}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-gray-900 capitalize">{member.role}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{member.department}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{member.email}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{member.hospital?.name || 'Unassigned'}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(member.status)}`}>
-                          {member.status}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.isEmailVerified ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100'}`}>
+                          {member.isEmailVerified ? 'Verified' : 'Pending'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{member.workHours}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <button className="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
-                        <button className="text-green-600 hover:text-green-900">Assign</button>
+                        <button className="text-red-600 hover:text-red-900">Remove</button>
                       </td>
                     </tr>
-                  ))}
+                  )) || (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-4 text-center text-gray-500">No staff found</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
         )}
       </div>
+
+      {/* Add Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Add New {showAddModal}</h3>
+            <div className="space-y-4">
+              {showAddModal === 'ambulance' && (
+                <>
+                  <input
+                    type="text"
+                    placeholder="Vehicle Number"
+                    value={newItem.vehicleNumber || ''}
+                    onChange={(e) => setNewItem({...newItem, vehicleNumber: e.target.value})}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  />
+                </>
+              )}
+              {showAddModal === 'bed' && (
+                <>
+                  <input
+                    type="text"
+                    placeholder="Bed Number"
+                    value={newItem.bedNumber || ''}
+                    onChange={(e) => setNewItem({...newItem, bedNumber: e.target.value})}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  />
+                  <select
+                    value={newItem.bedType || ''}
+                    onChange={(e) => setNewItem({...newItem, bedType: e.target.value})}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  >
+                    <option value="">Select Bed Type</option>
+                    <option value="ICU">ICU</option>
+                    <option value="EMERGENCY">Emergency</option>
+                    <option value="GENERAL">General</option>
+                    <option value="PEDIATRIC">Pediatric</option>
+                    <option value="MATERNITY">Maternity</option>
+                  </select>
+                </>
+              )}
+            </div>
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={() => handleAddItem(showAddModal)}
+                className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
+              >
+                Add
+              </button>
+              <button
+                onClick={() => {setShowAddModal(null); setNewItem({});}}
+                className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

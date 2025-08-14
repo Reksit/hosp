@@ -1,70 +1,60 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useApi } from '../hooks/useApi';
 import { Calendar, Clock, CheckCircle, AlertCircle, Users, LogOut, FileText } from 'lucide-react';
 
 export default function DoctorNurseDashboard() {
   const { user, logout } = useAuth();
+  const { request } = useApi();
   const [activeTab, setActiveTab] = useState('overview');
+  const [assignments, setAssignments] = useState([]);
+  const [workHours, setWorkHours] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data
-  const todayStats = {
-    totalPatients: user?.role === 'doctor' ? 12 : 8,
-    completedTasks: user?.role === 'doctor' ? 8 : 6,
-    pendingTasks: user?.role === 'doctor' ? 4 : 2,
-    workHours: 6.5,
-    scheduledHours: 12
-  };
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch user's assigned beds (which represent patient assignments)
+        if (user?.hospitalId) {
+          const bedsData = await request(`/beds/hospital/${user.hospitalId}`);
+          const userAssignments = bedsData.filter(bed => 
+            (user.role === 'DOCTOR' && bed.assignedDoctor?.id === parseInt(user.id)) ||
+            (user.role === 'NURSE' && bed.assignedNurse?.id === parseInt(user.id))
+          );
+          setAssignments(userAssignments);
+        }
+        
+        // Fetch work hours
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+        const endDate = new Date();
+        
+        const workHoursData = await request(
+          `/users/${user?.id}/work-hours?startDate=${startDate.toISOString().split('T')[0]}&endDate=${endDate.toISOString().split('T')[0]}`
+        );
+        setWorkHours(workHoursData);
+        
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const assignments = [
-    {
-      id: 1,
-      type: user?.role === 'doctor' ? 'consultation' : 'patient_care',
-      patient: 'John Smith',
-      room: 'ICU-001',
-      time: '09:00 AM',
-      priority: 'high',
-      status: 'pending',
-      notes: user?.role === 'doctor' ? 'Routine checkup post-surgery' : 'Administer medication and vital checks'
-    },
-    {
-      id: 2,
-      type: user?.role === 'doctor' ? 'surgery' : 'patient_care',
-      patient: 'Jane Doe',
-      room: 'OR-2',
-      time: '11:30 AM',
-      priority: 'critical',
-      status: 'in_progress',
-      notes: user?.role === 'doctor' ? 'Emergency appendectomy' : 'Pre-surgery patient preparation'
-    },
-    {
-      id: 3,
-      type: user?.role === 'doctor' ? 'consultation' : 'medication',
-      patient: 'Mike Johnson',
-      room: 'ER-005',
-      time: '02:00 PM',
-      priority: 'medium',
-      status: 'completed',
-      notes: user?.role === 'doctor' ? 'Follow-up for chest pain' : 'Pain medication administration'
-    },
-    {
-      id: 4,
-      type: user?.role === 'doctor' ? 'consultation' : 'vitals',
-      patient: 'Sarah Wilson',
-      room: 'GEN-012',
-      time: '04:00 PM',
-      priority: 'low',
-      status: 'pending',
-      notes: user?.role === 'doctor' ? 'Discharge consultation' : 'Hourly vital sign monitoring'
+    if (user?.id) {
+      fetchData();
     }
-  ];
+  }, [user]);
 
-  const workHours = [
-    { date: '2025-01-01', hoursWorked: 8, scheduledHours: 12, overtime: 0 },
-    { date: '2025-01-02', hoursWorked: 10, scheduledHours: 12, overtime: 0 },
-    { date: '2025-01-03', hoursWorked: 12, scheduledHours: 8, overtime: 4 },
-    { date: '2025-01-04', hoursWorked: 9, scheduledHours: 12, overtime: 0 },
-    { date: '2025-01-05', hoursWorked: 6.5, scheduledHours: 12, overtime: 0 }
-  ];
+  const todayStats = {
+    totalPatients: assignments.length,
+    completedTasks: assignments.filter(a => a.status === 'OCCUPIED').length,
+    pendingTasks: assignments.filter(a => a.status === 'AVAILABLE').length,
+    workHours: workHours.length > 0 ? workHours[workHours.length - 1]?.actualHours || 0 : 0,
+    scheduledHours: workHours.length > 0 ? workHours[workHours.length - 1]?.scheduledHours || 8 : 8
+  };
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -89,9 +79,52 @@ export default function DoctorNurseDashboard() {
     return colors[priority] || 'text-gray-600 bg-gray-100';
   };
 
-  const handleTaskComplete = (taskId: number) => {
-    // In real app, this would update the backend
-    console.log('Completing task:', taskId);
+  const handleTaskComplete = async (bedId: number) => {
+    try {
+      // Update bed status or assignment
+      console.log('Completing task for bed:', bedId);
+      // Refresh assignments after completion
+      // This would typically involve updating the bed status or patient discharge
+    } catch (error) {
+      console.error('Failed to complete task:', error);
+    }
+  };
+
+  const logWorkHours = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const scheduledHours = prompt('Enter scheduled hours for today:');
+      const actualHours = prompt('Enter actual hours worked:');
+      
+      if (scheduledHours && actualHours) {
+        await request('/users/work-hours', {
+          method: 'POST',
+          body: JSON.stringify({
+            workDate: today,
+            scheduledHours: parseFloat(scheduledHours),
+            actualHours: parseFloat(actualHours),
+            department: user?.role === 'DOCTOR' ? 'Medical' : 'Nursing'
+          }),
+        });
+        
+        // Refresh work hours data
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Failed to log work hours:', error);
+      alert('Failed to log work hours. Please try again.');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -204,23 +237,22 @@ export default function DoctorNurseDashboard() {
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Today's Schedule</h2>
               <div className="space-y-4">
-                {assignments.filter(a => a.status === 'pending' || a.status === 'in_progress').slice(0, 4).map((assignment) => (
+                {assignments.slice(0, 4).map((assignment) => (
                   <div key={assignment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-1">
-                        <p className="font-medium text-gray-900">{assignment.patient}</p>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(assignment.priority)}`}>
-                          {assignment.priority}
+                        <p className="font-medium text-gray-900">{assignment.patientName || 'No patient assigned'}</p>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(assignment.status)}`}>
+                          {assignment.status}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600">{assignment.room} • {assignment.time}</p>
-                      <p className="text-xs text-gray-500 mt-1">{assignment.notes}</p>
+                      <p className="text-sm text-gray-600">{assignment.bedNumber} • {assignment.bedType}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {assignment.patientContact ? `Contact: ${assignment.patientContact}` : 'No contact info'}
+                      </p>
                     </div>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(assignment.status)}`}>
-                      {assignment.status.replace('_', ' ')}
-                    </span>
                   </div>
-                ))}
+                )) || <p className="text-gray-500">No assignments today</p>}
               </div>
             </div>
 
@@ -260,6 +292,15 @@ export default function DoctorNurseDashboard() {
                   <p className="text-xs text-gray-500">Shift: 8:00 AM - 8:00 PM</p>
                 </div>
               </div>
+              
+              <div className="pt-4 border-t">
+                <button
+                  onClick={logWorkHours}
+                  className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700"
+                >
+                  Log Work Hours
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -277,42 +318,41 @@ export default function DoctorNurseDashboard() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="text-lg font-medium text-gray-900">{assignment.patient}</h3>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(assignment.priority)}`}>
-                          {assignment.priority} priority
-                        </span>
+                        <h3 className="text-lg font-medium text-gray-900">{assignment.patientName || 'No patient assigned'}</h3>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(assignment.status)}`}>
-                          {assignment.status.replace('_', ' ')}
+                          {assignment.status}
                         </span>
                       </div>
                       <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
                         <span className="flex items-center space-x-1">
                           <MapPin className="h-4 w-4" />
-                          <span>{assignment.room}</span>
+                          <span>{assignment.bedNumber}</span>
                         </span>
                         <span className="flex items-center space-x-1">
                           <Clock className="h-4 w-4" />
-                          <span>{assignment.time}</span>
+                          <span>{assignment.bedType}</span>
                         </span>
-                        <span className="capitalize">{assignment.type.replace('_', ' ')}</span>
+                        <span>Bed Assignment</span>
                       </div>
-                      <p className="text-gray-700">{assignment.notes}</p>
+                      <p className="text-gray-700">
+                        {assignment.patientContact ? `Patient Contact: ${assignment.patientContact}` : 'No additional notes'}
+                      </p>
                     </div>
                     <div className="flex space-x-2 ml-4">
-                      {assignment.status === 'pending' && (
+                      {assignment.status === 'AVAILABLE' && (
                         <button
                           onClick={() => handleTaskComplete(assignment.id)}
                           className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
                         >
-                          Start
+                          Assign Patient
                         </button>
                       )}
-                      {assignment.status === 'in_progress' && (
+                      {assignment.status === 'OCCUPIED' && (
                         <button
                           onClick={() => handleTaskComplete(assignment.id)}
                           className="px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
                         >
-                          Complete
+                          Discharge
                         </button>
                       )}
                       <button className="px-3 py-1 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50">
@@ -369,20 +409,24 @@ export default function DoctorNurseDashboard() {
                   {workHours.map((entry, index) => (
                     <tr key={index} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                        {new Date(entry.date).toLocaleDateString()}
+                        {new Date(entry.workDate).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-gray-600">{entry.scheduledHours}h</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">{entry.hoursWorked}h</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{entry.overtime}h</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">{entry.actualHours}h</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{entry.overtimeHours}h</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          entry.hoursWorked >= entry.scheduledHours ? 'text-green-600 bg-green-100' : 'text-yellow-600 bg-yellow-100'
+                          entry.actualHours >= entry.scheduledHours ? 'text-green-600 bg-green-100' : 'text-yellow-600 bg-yellow-100'
                         }`}>
-                          {entry.hoursWorked >= entry.scheduledHours ? 'Complete' : 'Incomplete'}
+                          {entry.actualHours >= entry.scheduledHours ? 'Complete' : 'Incomplete'}
                         </span>
                       </td>
                     </tr>
-                  ))}
+                  )) || (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-4 text-center text-gray-500">No work hours logged</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
